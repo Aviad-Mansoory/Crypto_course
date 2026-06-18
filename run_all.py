@@ -15,14 +15,14 @@ import os
 
 def run_everything():
     print("==================================================")
-    print("  מערכת הרצה אוטומטית - פרויקט תקשורת היברידית")
+    print("  Automated Runner - Hybrid Cryptography Project")
     print("==================================================")
     
     # נתיב תיקיית העבודה הנוכחית
     cwd = os.path.dirname(os.path.abspath(__file__))
     
     # שלב א': אתחול מפתחות ה-CA
-    print("\n[+] שלב א': מאתחל את מפתחות ה-CA (ca_manager.py)...")
+    print("\n[+] Step A: Initializing CA keys (ca_manager.py)...")
     # הרצת ca_manager באופן סינכרוני כדי לוודא שיש מפתחות CA לפני שהשרת והלקוח עולים
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
@@ -31,7 +31,7 @@ def run_everything():
     subprocess.run([sys.executable, "ca_manager.py"], cwd=cwd, env=env)
     
     # שלב ב': הפעלת השרת בחלון קונסול חדש
-    print("\n[+] שלב ב': מפעיל את השרת (server.py) בחלון מסוף (Console) נפרד...")
+    print("\n[+] Step B: Starting the Server (server.py) in a new console window...")
     if os.name == 'nt':
         # פקודה ייעודית לווינדוס: פותחת חלון CMD חדש, מגדירה קידוד UTF-8 ומריצה את השרת
         # הארגומנט /k ב-cmd דואג שהחלון יישאר פתוח גם אם השרת נופל/נעצר
@@ -42,15 +42,15 @@ def run_everything():
         subprocess.Popen([sys.executable, "server.py"], cwd=cwd, env=env)
         
     # המתנה קלה כדי לאפשר לשרת לעלות, לייצר את המפתחות והתעודה שלו, ולהתחיל להאזין לפורט 8080
-    print("[+] ממתין 1.5 שניות לעליית השרת...")
+    print("[+] Waiting 1.5 seconds for the server to spin up...")
     time.sleep(1.5)
     
     # שלב ג': הפעלת הלקוח עם הממשק הגרפי (GUI)
-    print("\n[+] שלב ג': מפעיל את ממשק הלקוח (client_gui.py)...")
+    print("\n[+] Step C: Starting the client GUI (client_gui.py)...")
     subprocess.run([sys.executable, "client_gui.py"], cwd=cwd, env=env)
     
     print("\n==================================================")
-    print("  הרצת המערכת הסתיימה.")
+    print("  System startup complete.")
     print("==================================================")
 
 if __name__ == "__main__":

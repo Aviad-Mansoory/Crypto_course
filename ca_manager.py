@@ -22,7 +22,7 @@ def initialize_ca():
     הלקוח יחזיק מראש את המפתח הציבורי של ה-CA (ca_public.pem) כדי לבדוק תעודות של שרתים.
     """
     if not os.path.exists(CA_PRIVATE_KEY_PATH) or not os.path.exists(CA_PUBLIC_KEY_PATH):
-        print("[CA] מפתחות ה-CA אינם קיימים. מייצר מפתחות חדשים...")
+        print("[CA] CA keys do not exist. Generating new keys...")
         private_pem, public_pem = generate_rsa_keys()
         
         # שמירת המפתח הפרטי של ה-CA (חייב להישאר סודי ומאובטח)
@@ -33,9 +33,9 @@ def initialize_ca():
         with open(CA_PUBLIC_KEY_PATH, "wb") as pub_file:
             pub_file.write(public_pem)
             
-        print(f"[CA] מפתחות ה-CA נוצרו בהצלחה ונשמרו ב-{CA_PRIVATE_KEY_PATH} וב-{CA_PUBLIC_KEY_PATH}")
+        print(f"[CA] CA keys generated successfully and saved in {CA_PRIVATE_KEY_PATH} and {CA_PUBLIC_KEY_PATH}")
     else:
-        print("[CA] מפתחות ה-CA כבר קיימים ומטענים מן הדיסק.")
+        print("[CA] CA keys already exist. Loaded from disk.")
 
 
 def get_ca_private_key() -> bytes:
@@ -104,7 +104,7 @@ def verify_certificate(cert: dict, ca_public_key_pem: bytes) -> bool:
     # בדיקה שכל השדות הנדרשים קיימים בתעודה
     required_fields = ["server_name", "public_key", "issuer_name", "signature"]
     if not all(field in cert for field in required_fields):
-        print("[CA Verification] שגיאה: תעודת השרת חסרה שדות הכרחיים.")
+        print("[CA Verification] Error: Server certificate is missing required fields.")
         return False
         
     # שליפת החתימה והמרתה בחזרה מיוצוג הקסדצימלי לבייטים
@@ -126,26 +126,26 @@ def verify_certificate(cert: dict, ca_public_key_pem: bytes) -> bool:
 
 # הרצה ישירה של הסקריפט ליצירת המפתחות ובדיקה עצמית
 if __name__ == "__main__":
-    print("--- אתחול ובדיקת מערכת רשות האישורים (Fake CA) ---")
+    print("--- CA System Initialization and Self-Test ---")
     initialize_ca()
     
     # הדגמה של יצירה ואימות תעודה
-    print("\n--- בדיקת מנגנון תעודות: סמל שרת לדוגמה ---")
+    print("\n--- Certificate Mechanism Test: Mock Server Cert ---")
     # יצירת מפתח שרת לדוגמה
     _, test_server_pub_pem = generate_rsa_keys()
     
     # יצירת התעודה עבור השרת לדוגמה
     cert = create_server_certificate("LocalServerTest", test_server_pub_pem)
-    print("התעודה שנוצרה בפורמט JSON:")
+    print("Generated Certificate JSON:")
     print(json.dumps(cert, indent=4, ensure_ascii=False))
     
     # אימות התעודה
     ca_pub = get_ca_public_key()
     is_ok = verify_certificate(cert, ca_pub)
-    print(f"\nהאם התעודה תקינה ומאומתת? {is_ok}")
+    print(f"\nIs the certificate valid and verified? {is_ok}")
     
     # ניסיון זיוף תעודה (שינוי שם השרת לאחר החתימה)
-    print("\n--- בדיקת זיוף תעודה (שינוי שם השרת ללא שינוי החתימה) ---")
+    print("\n--- Certificate Forgery Test (Altering Server Name) ---")
     cert["server_name"] = "HackerServer"
     is_ok_fake = verify_certificate(cert, ca_pub)
-    print(f"האם התעודה המזויפת עברה אימות? {is_ok_fake} (מצוין, החתימה מונעת שינויים!)")
+    print(f"Did forged certificate pass verification? {is_ok_fake} (Excellent, signature blocks alterations!)")

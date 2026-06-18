@@ -94,7 +94,7 @@ def initialize_server_credentials():
     """
     # 1. יצירת מפתחות RSA לשרת אם אינם קיימים
     if not os.path.exists(SERVER_PRIVATE_KEY_PATH) or not os.path.exists(SERVER_PUBLIC_KEY_PATH):
-        print("[Server] מפתחות השרת אינם קיימים. מייצר מפתחות RSA חדשים (2048 ביט)...")
+        print("[Server] Server keys do not exist. Generating new 2048-bit RSA keys...")
         private_pem, public_pem = generate_rsa_keys()
         
         with open(SERVER_PRIVATE_KEY_PATH, "wb") as priv_file:
@@ -102,11 +102,11 @@ def initialize_server_credentials():
         with open(SERVER_PUBLIC_KEY_PATH, "wb") as pub_file:
             pub_file.write(public_pem)
             
-        print("[Server] מפתחות השרת נוצרו ונשמרו בהצלחה.")
+        print("[Server] Server keys generated and saved successfully.")
     
     # 2. יצירת תעודת אישור דיגיטלית חתומה על ידי ה-CA
     if not os.path.exists(SERVER_CERT_PATH):
-        print("[Server] תעודת השרת אינה קיימת. פונה ל-CA להנפקת תעודה...")
+        print("[Server] Server certificate does not exist. Requesting certificate from CA...")
         
         # קריאת המפתח הציבורי של השרת
         with open(SERVER_PUBLIC_KEY_PATH, "rb") as pub_file:
@@ -120,9 +120,9 @@ def initialize_server_credentials():
         with open(SERVER_CERT_PATH, "w", encoding="utf-8") as cert_file:
             json.dump(cert_dict, cert_file, indent=4, ensure_ascii=False)
             
-        print(f"[Server] תעודת השרת הונפקה ונשמרה ב-{SERVER_CERT_PATH}")
+        print(f"[Server] Server certificate issued and saved to {SERVER_CERT_PATH}")
     else:
-        print("[Server] תעודת השרת קיימת ונטענת מהדיסק.")
+        print("[Server] Server certificate already exists. Loaded from disk.")
 
 
 def get_server_private_key() -> bytes:
@@ -141,21 +141,21 @@ def handle_client(client_socket: socket.socket, client_address: tuple):
     מממשת את שלבי הפרוטוקול המאובטח (Handshake, Key Exchange, Authentication, Data Transfer).
     """
     print(f"\n==================================================")
-    print(f"[Server] חיבור חדש התקבל מכתובת: {client_address}")
+    print(f"[Server] New connection accepted from: {client_address}")
     print(f"==================================================")
     
     try:
         # --- שלב 1: קבלת הודעת פתיחה ובקשת התחברות מהלקוח ---
         hello_data = recv_msg(client_socket)
         if not hello_data:
-            print(f"[Server] [שגיאה] החיבור נסגר בשלב הפתיחה על ידי {client_address}")
+            print(f"[Server] [Error] Connection closed during handshake by {client_address}")
             return
             
         hello_json = json.loads(hello_data.decode('utf-8'))
         chosen_cipher = hello_json.get("algorithm", "AES-256")
         
-        print(f"\n[Server] >>> שלב 1: הלקוח יזם חיבור וביקש שיטת הצפנה סימטרית: {chosen_cipher}")
-        print(f"         [הסבר]: הלקוח הגדיר באיזו רמת חוזק של AES ברצונו להצפין את תוכן ההודעות בהמשך (128 או 256 ביט).")
+        print(f"\n[Server] >>> Step 1: Client initiated handshake. Requested symmetric cipher: {chosen_cipher}")
+        print(f"         [Explanation]: Client defines the strength of the AES key to encrypt future messages (128 or 256 bits).")
         
         # קביעת אורך המפתח בהתאם לבקשת המשתמש
         if chosen_cipher == "AES-256":
@@ -163,7 +163,7 @@ def handle_client(client_socket: socket.socket, client_address: tuple):
         elif chosen_cipher == "AES-128":
             key_len_bytes = 16
         else:
-            print(f"[Server] [שגיאה] אלגוריתם לא נתמך: {chosen_cipher}. סוגר חיבור.")
+            print(f"[Server] [Error] Unsupported cipher: {chosen_cipher}. Closing connection.")
             client_socket.close()
             return
             
@@ -171,56 +171,56 @@ def handle_client(client_socket: socket.socket, client_address: tuple):
         with open(SERVER_CERT_PATH, "r", encoding="utf-8") as cert_file:
             cert_content = cert_file.read()
             
-        print(f"\n[Server] >>> שלב 2: שולח ללקוח את תעודת זהות השרת החתומה ({SERVER_CERT_PATH})")
-        print(f"         [הסבר]: התעודה מכילה את שם השרת, המפתח הציבורי שלו ואת החתימה הדיגיטלית של ה-CA הפיקטיבי.")
-        print(f"                 הלקוח יאמת את החתימה באמצעות מפתח ה-CA הציבורי שברשותו כדי לוודא שזהו אכן השרת האמיתי ולא מתחזה (מניעת Man-in-the-Middle).")
+        print(f"\n[Server] >>> Step 2: Sending signed server certificate ({SERVER_CERT_PATH}) to client.")
+        print(f"         [Explanation]: The certificate contains the server name, public key, and the Fake CA's signature.")
+        print(f"                        The client will verify the signature using the CA's public key to prevent Man-in-the-Middle (MitM) attacks.")
         send_msg(client_socket, cert_content.encode('utf-8'))
         
         # --- שלב 3: קבלת מפתח AES מוצפן ב-RSA ופענוחו ---
         encrypted_aes_key = recv_msg(client_socket)
         if not encrypted_aes_key:
-            print("[Server] [שגיאה] כשל בקבלת מפתח ה-AES המוצפן מהלקוח.")
+            print("[Server] [Error] Failed to receive encrypted AES key from client.")
             return
             
-        print(f"\n[Server] >>> שלב 3: התקבל מפתח AES מוצפן מהלקוח. מפענח באמצעות המפתח הפרטי RSA של השרת...")
-        print(f"         [הסבר]: הלקוח ייצר מפתח AES סימטרי אקראי חדש, והצפין אותו באמצעות המפתח הציבורי של השרת (RSA-OAEP).")
-        print(f"                 רק השרת, המחזיק במפתח הפרטי RSA התואם, מסוגל לפענח אותו. זהו מנגנון החלפת מפתחות היברידי (Key Exchange).")
+        print(f"\n[Server] >>> Step 3: Encrypted AES key received. Decrypting with server's RSA private key...")
+        print(f"         [Explanation]: The client generated a random AES key and encrypted it with the server's public key (RSA-OAEP).")
+        print(f"                        Only the server, holding the private key, can decrypt it. This is the Hybrid Key Exchange.")
         
         server_private_pem = get_server_private_key()
         aes_key = rsa_decrypt(encrypted_aes_key, server_private_pem)
         
         # וידוא שאורך המפתח מתאים למה שסוכם בשלב הפתיחה
         if len(aes_key) != key_len_bytes:
-            raise ValueError(f"אורך מפתח AES שפוענח ({len(aes_key)} בתים) אינו מתאים לאלגוריתם שנבחר ({key_len_bytes} בתים)")
+            raise ValueError(f"Decrypted AES key length ({len(aes_key)} bytes) does not match chosen cipher ({key_len_bytes} bytes)")
             
-        print(f"[Server] [הצלחה] מפתח ה-AES פוענח בהצלחה! נקבע מפתח סודי משותף בגודל {key_len_bytes * 8} ביט.")
+        print(f"[Server] [Success] AES key decrypted successfully! Established shared key of size {key_len_bytes * 8} bits.")
         
         # --- שלב 4: אימות שם משתמש וסיסמה (מוצפנים ב-AES) ---
-        print(f"\n[Server] >>> שלב 4: ממתין לקבלת פרטי הזדהות (שם משתמש וסיסמה) מהלקוח...")
+        print(f"\n[Server] >>> Step 4: Waiting for client's login credentials (username and password)...")
         encrypted_creds = recv_msg(client_socket)
         if not encrypted_creds:
-            print("[Server] [שגיאה] לא התקבלו פרטי הזדהות מהלקוח.")
+            print("[Server] [Error] Did not receive credentials from client.")
             return
             
-        print(f"[Server] פרטי הזדהות מוצפנים התקבלו. מפענח ב-AES-CBC באמצעות המפתח המשותף...")
+        print(f"[Server] Encrypted credentials received. Decrypting using shared AES key...")
         # פענוח פרטי ההזדהות באמצעות מפתח ה-AES המשותף שנקבע
         creds_json_bytes = aes_decrypt(encrypted_creds, aes_key)
         creds = json.loads(creds_json_bytes.decode('utf-8'))
         
         username = creds.get("username")
         password = creds.get("password")
-        print(f"[Server] ניסיון התחברות עבור שם משתמש: '{username}'")
+        print(f"[Server] Authentication request for username: '{username}'")
         
         # בדיקה האם המשתמש קיים והסיסמה נכונה במסד הנתונים
         auth_success = False
         if username in USER_DATABASE and USER_DATABASE[username] == password:
             auth_success = True
-            print(f"[Server] [הצלחה] משתמש '{username}' אומת בהצלחה במסד הנתונים!")
+            print(f"[Server] [Success] User '{username}' successfully authenticated!")
         else:
-            print(f"[Server] [כשל] אימות נכשל עבור המשתמש '{username}' - סיסמה שגויה או משתמש לא קיים.")
+            print(f"[Server] [Failed] Authentication failed for user '{username}' - invalid password or username.")
             
         # --- שלב 5: שליחת תוצאת האימות מוצפנת ב-AES ---
-        print(f"\n[Server] >>> שלב 5: שולח את סטטוס האימות חזרה ללקוח (מוצפן ב-AES)...")
+        print(f"\n[Server] >>> Step 5: Sending authentication status back to client (AES-encrypted)...")
         auth_response = {"status": "success" if auth_success else "failure", "message": "התחברת בהצלחה" if auth_success else "שם משתמש או סיסמה שגויים"}
         auth_response_bytes = json.dumps(auth_response).encode('utf-8')
         encrypted_auth_response = aes_encrypt(auth_response_bytes, aes_key)
@@ -229,11 +229,11 @@ def handle_client(client_socket: socket.socket, client_address: tuple):
         
         # --- שלב 6: שליחת תמונות מוצפנות (אם האימות הצליח) ---
         if auth_success:
-            print(f"\n[Server] >>> שלב 6: האימות עבר בהצלחה! מתחיל לקרוא ולשלוח תמונות מוצפנות ב-AES...")
+            print(f"\n[Server] >>> Step 6: Authentication successful! Reading and sending AES-encrypted images...")
             
             # בדיקת קיום התיקייה והתמונות
             if not os.path.exists(CATS_DIR):
-                print(f"[Server] [שגיאה] תיקיית '{CATS_DIR}' אינה קיימת. לא ניתן לשלוח תמונות.")
+                print(f"[Server] [Error] Image directory '{CATS_DIR}' does not exist. Cannot send images.")
                 send_msg(client_socket, aes_encrypt(json.dumps({"image_count": 0}).encode('utf-8'), aes_key))
                 return
                 
@@ -245,7 +245,7 @@ def handle_client(client_socket: socket.socket, client_address: tuple):
             for img_name in IMAGE_FILES:
                 img_path = os.path.join(CATS_DIR, img_name)
                 if os.path.exists(img_path):
-                    print(f"[Server] קורא את התמונה '{img_name}', ומבצע הצפנת AES-CBC סימטרית...")
+                    print(f"[Server] Reading image '{img_name}' and performing symmetric AES-CBC encryption...")
                     with open(img_path, "rb") as img_file:
                         img_bytes = img_file.read()
                     
@@ -253,20 +253,20 @@ def handle_client(client_socket: socket.socket, client_address: tuple):
                     encrypted_img = aes_encrypt(img_bytes, aes_key)
                     
                     # שליחת קובץ התמונה המוצפן דרך השקע
-                    print(f"[Server] שולח {len(encrypted_img)} בתים של תמונה מוצפנת (עם 4 בתים Header המציינים את אורך החבילה)...")
+                    print(f"[Server] Sending {len(encrypted_img)} bytes of encrypted image (prefixed with 4-byte length header)...")
                     send_msg(client_socket, encrypted_img)
                 else:
-                    print(f"[Server] [שגיאה] קובץ התמונה {img_name} לא נמצא בדיסק.")
+                    print(f"[Server] [Error] Image file {img_name} not found on disk.")
             
-            print("[Server] [הצלחה] כל התמונות המוצפנות נשלחו ללקוח בהצלחה.")
+            print("[Server] [Success] All encrypted images successfully sent to the client.")
             
     except Exception as e:
-        print(f"[Server] [שגיאה חמורה] שגיאה במהלך הטיפול בלקוח: {e}")
+        print(f"[Server] [Severe Error] Error handling client request: {e}")
     finally:
         # סגירת החיבור עם הלקוח
         client_socket.close()
         print(f"==================================================")
-        print(f"[Server] החיבור עם {client_address} נסגר.")
+        print(f"[Server] Connection with {client_address} closed.")
         print(f"==================================================")
 
 
@@ -290,7 +290,7 @@ def start_server():
         server_socket.bind((HOST, PORT))
         # הגדרת כמות החיבורים הממתינים בתור
         server_socket.listen(5)
-        print(f"\n[Server] השרת רץ ומאזין לחיבורים בכתובת {HOST}:{PORT}...")
+        print(f"\n[Server] Server is running and listening on {HOST}:{PORT}...")
         
         while True:
             # המתנה לקבלת חיבור חדש
@@ -306,12 +306,12 @@ def start_server():
             client_thread.start()
             
     except KeyboardInterrupt:
-        print("\n[Server] השרת נעצר על ידי המשתמש (Ctrl+C).")
+        print("\n[Server] Server stopped by user (Ctrl+C).")
     except Exception as e:
-        print(f"[Server] שגיאה בהפעלת השרת: {e}")
+        print(f"[Server] Error running server: {e}")
     finally:
         server_socket.close()
-        print("[Server] ה-Socket הראשי של השרת נסגר.")
+        print("[Server] Server main socket closed.")
 
 
 if __name__ == "__main__":
