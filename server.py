@@ -18,7 +18,7 @@ from crypto_utils import rsa_decrypt, aes_encrypt, aes_decrypt, generate_rsa_key
 
 # הגדרות הרשת של השרת
 HOST = '127.0.0.1'  # האזנה מקומית בלבד
-PORT = 8080         # פורט התקשרות
+PORT = 8085         # פורט התקשרות
 SERVER_PRIVATE_KEY_PATH = "server_private.pem"
 SERVER_PUBLIC_KEY_PATH = "server_public.pem"
 SERVER_CERT_PATH = "server_cert.json"

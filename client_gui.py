@@ -24,7 +24,7 @@ from ca_manager import verify_certificate
 
 # הגדרות חיבור לשרת
 SERVER_HOST = '127.0.0.1'
-SERVER_PORT = 8080
+SERVER_PORT = 8085
 CA_PUBLIC_KEY_PATH = "ca_public.pem"
 
 

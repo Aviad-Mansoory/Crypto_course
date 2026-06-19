@@ -41,7 +41,7 @@ def run_everything():
         # תמיכה בסיסית למערכות יוניקס/לינוקס/מק (מריץ ברקע ללא חלון נפרד)
         subprocess.Popen([sys.executable, "server.py"], cwd=cwd, env=env)
         
-    # המתנה קלה כדי לאפשר לשרת לעלות, לייצר את המפתחות והתעודה שלו, ולהתחיל להאזין לפורט 8080
+    # המתנה קלה כדי לאפשר לשרת לעלות, לייצר את המפתחות והתעודה שלו, ולהתחיל להאזין לפורט 8085
     print("[+] Waiting 1.5 seconds for the server to spin up...")
     time.sleep(1.5)
     
